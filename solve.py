@@ -19,3 +19,11 @@ class Constraint:
         self.var2 = var2 # second variable
         self.pos1 = pos1 # position in var1 where they intersect
         self.pos2 = pos2 # position in var2 where they intersect
+
+def load_dictionary(filename, verbosity=0):
+    words = []
+    with open(filename, 'r') as data:
+        for line in data:
+            word = line.strip().upper()
+            if word:
+                words.append(word)
