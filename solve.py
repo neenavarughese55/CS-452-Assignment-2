@@ -36,9 +36,13 @@ def load_dictionary(filename, verbosity=0):
     return words
 
 def parse_puzzle(filename, verbosity=0):
+    # Parse puzzle grid from file
     with open(filename, 'r') as data:
+        # Read dimensions
         first_line = data.readline().strip()
         rows, cols = map(int, first_line.split())
+
+        # Read grid
         grid = []
         for i in range(rows):
             line = data.readline().strip()
@@ -52,3 +56,33 @@ def parse_puzzle(filename, verbosity=0):
         for row in grid:
             print(''.join(row))
     return grid, rows, cols
+
+def build_csp(grid, dictionary, verbosity=0):
+    variables = []
+    var_dict = {}
+    rows = len(grid)
+    cols = len(grid[0]) if rows > 0 else 0
+
+    # Find across words
+    for i in range(rows):
+        j = 0
+        while j < cols:
+            if grid[i][j].isdigit(): # Start of a word
+                start_j = j
+                number = grid[i][j]
+                length = 0
+
+                # Calculate word length
+                is_start_of_across = (j == 0 or grid[i][j-1] == '#')
+                while j < cols and grid[i][j] != '#':
+                    length += 1
+                    j += 1
+                
+                if is_start_of_across and length > 1: # Single letter words don't count
+                    var_name = f"X{number}a"
+                    var = Variable(var_name, 'across', (i, start_j), length)
+                    variables.append(var)
+                    var_dict[var_name] = var
+                j += 1
+            else:
+                j +=1
