@@ -21,9 +21,34 @@ class Constraint:
         self.pos2 = pos2 # position in var2 where they intersect
 
 def load_dictionary(filename, verbosity=0):
+    # Load dictionary words from file
     words = []
     with open(filename, 'r') as data:
         for line in data:
             word = line.strip().upper()
-            if word:
+            if word: # Skip empty lines
                 words.append(word)
+
+    if verbosity >= 1:
+        print(f"* Reading dictionary from [{filename}]")
+    if verbosity >= 2:
+        print(f"** Dictionary has {len(words)} words")
+    return words
+
+def parse_puzzle(filename, verbosity=0):
+    with open(filename, 'r') as data:
+        first_line = data.readline().strip()
+        rows, cols = map(int, first_line.split())
+        grid = []
+        for i in range(rows):
+            line = data.readline().strip()
+            cells = line.split()
+            grid.append(cells)
+
+    if verbosity >=1:
+        print(f"* Reading puzzle from [{filename}]")
+    if verbosity >=2:
+        print("** Puzzle")
+        for row in grid:
+            print(''.join(row))
+    return grid, rows, cols
