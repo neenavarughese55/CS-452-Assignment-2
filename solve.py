@@ -253,13 +253,16 @@ def is_consistent(var, value, assignment, csp, forward_check):
         return True
     
 def backtrack(assignment, csp, args, stats, depth):
+    # Recursive backtracking function
     stats['recursive_calls'] += 1
 
+    # If assignment is complete, return it
     if len(assignment) == len(csp['variable']):
         if args.verbosity >= 2:
             print(" " * depth + "Assignment is complete!")
         return assignment
     
+    # Select unassigned variable
     var = select_unassigned_variable(assignment, csp, args.variable_selection)
 
     if args.verbosity >= 2:
@@ -267,16 +270,22 @@ def backtrack(assignment, csp, args, stats, depth):
         print(f"{indent}Backtrack Call: ")
         print(f"{indent}Trying values for {var.name}")
 
+    # Try values in order
     for value in order_domain_values(var, assignment, csp, args.value_order):
         if is_consistent(var, value, assignment, csp, args.limited_forward_check):
+            # Add to assignment
             assignment[var.name] = value
+
             if args.verbosity >= 2:
                 indent = " " * depth
                 print(f"{indent}Assignment {{ {var.name} = {value} }} is consistent")
 
+                # Recursive call
                 result = backtrack(assignment, csp, args, stats, depth + 1)
                 if result is not None:
                     return result
+                
+                # Backtrack
                 del assignment[var.name]
             else:
                 if args.verbosity >= 2:
@@ -286,9 +295,10 @@ def backtrack(assignment, csp, args, stats, depth):
     if args.verbosity >= 2:
         indent = " " * depth
         print(f"{indent}Failed call; backtracking...")
-    return None
+    return None # Failure
 
 def backtracking_search(csp, args, stats):
+    # Backtracking search algorithm
     assignment = {}
     if args.verbosity >= 1:
         print("* Attempting to solve crossword puzzle...")
@@ -331,3 +341,44 @@ def display_solution(assignment, original_grid):
             else:
                 display_row.append(cell)
         print(''.join(display_row))
+
+def main():
+    parser = argparse.ArgumentParser(description='Crossword Puzzle Solver')
+    parser.add_argument('-d', dest='dictionary_file', required=True)
+    parser.add_argument('-p', dest='puzzle_file', required=True)
+    parser.add_argument('-v', dest='verbosity', type=int, default=0)
+    parser.add_argument('-vs', '--variable-selection', choices=['static', 'mrv', 'deg', 'mrv+deg'], default='static')
+    parser.add_argument('-vo', '--value-order', choices=['static', 'lcv'], default='static')
+    parser.add_argument('-lfc', '--limited-forward-check', action='store_true')
+
+    args = parser.parse_args()
+    start_time = time.time()
+    stats = {'recursive_calls': 0, 'start_time': start_time}
+
+    # Solve the puzzle
+    try:
+        dictionary = load_dictionary(args.dictionary_file, args.verbosity)
+        grid, rows, cols = parse_puzzle(args.puzzle_file, args.verbosity)
+        csp = build_csp(grid, dictionary, args.verbosity)
+        solution = backtracking_search(csp, args, stats)
+        stats['elapsed_time'] = int((time.time() - start_time) * 1000)
+
+        # Output results
+        if solution is not None:
+            print("SUCCESS! ", end="")
+        else:
+            print("FAILED ", end="")
+        print(f"Solving took {stats['elapsed_time']}ms ({stats['recursive_calls']} recursive calls)")
+
+        if solution:
+            display_solution(solution, grid)
+
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
