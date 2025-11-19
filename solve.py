@@ -287,3 +287,11 @@ def backtrack(assignment, csp, args, stats, depth):
         indent = " " * depth
         print(f"{indent}Failed call; backtracking...")
     return None
+
+def backtracking_search(csp, args, stats):
+    assignment = {}
+    if args.verbosity >= 1:
+        print("* Attempting to solve crossword puzzle...")
+    if args.verbosity >= 2:
+        print("** Running backtracking search...")
+    return backtrack(assignment, csp, args, stats, 0)
