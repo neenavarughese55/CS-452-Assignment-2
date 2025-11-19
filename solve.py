@@ -117,4 +117,6 @@ def build_csp(grid, dictionary, verbosity=0):
             words_by_length[length] = []
         words_by_length[length].append(word)
 
-    
+    for var in variables:
+        if var.length in words_by_length:
+            var.domains = sorted(words_by_length[var.length])
