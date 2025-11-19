@@ -120,3 +120,34 @@ def build_csp(grid, dictionary, verbosity=0):
     for var in variables:
         if var.length in words_by_length:
             var.domains = sorted(words_by_length[var.length])
+
+    # Find constraints
+    constraints = []
+    position_to_vars = {}
+
+    # Get all positions occupied by var1 and var2
+    for var in variables:
+        row, col = var.start.pos
+        for pos in range(var.length):
+            if var.direction == 'across':
+                current_pos = (row, col + pos)
+            else:
+                current_pos = (row + pos, col)
+
+            if current_pos not in position_to_vars:
+                position_to_vars[current_pos] = []
+            position_to_vars[current_pos].append((var, pos))
+
+    for pos, var_list in position_to_vars.items():
+        if len(var_list) > 1:
+            for i in range(len(var_list)):
+                for j in range(i + 1, len(var_list)):
+                    var1, pos1 = var_list[i]
+                    var2, pos2 = var_list[j]
+                    constraints.append(Constraint(var1, var2, pos1, pos2))
+
+    if verbosity >= 1:
+        print(f"* CSP has {len(variables)} variables")
+        print(f"* CSP has {len(constraints)} constraints")
+
+    return {'variables': variables, 'constraints': constraints, 'var_dict': var_dict}
