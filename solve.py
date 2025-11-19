@@ -86,3 +86,35 @@ def build_csp(grid, dictionary, verbosity=0):
                 j += 1
             else:
                 j +=1
+
+    # Find down words
+    for j in range(cols):
+        i = 0
+        while i < rows:
+            if grid[i][j].isdigit():
+                start_i = i
+                number = grid[i][j]
+                length = 0
+                is_start_of_down = (i == 0 or grid[i-1][j] == '#')
+                while i < rows and grid[i][j] != '#':
+                    length += 1
+                    i += 1
+                
+                if is_start_of_down and length > 1:
+                    var_name = f"X{number}d"
+                    var = Variable(var_name, 'down', (start_i, j), length)
+                    variables.append(var)
+                    var_dict[var_name] = var
+                i += 1
+            else:
+                i += 1
+
+    # Initialise domains
+    words_by_length = {}
+    for word in dictionary:
+        length = len(word)
+        if length not in words_by_length:
+            words_by_length[length] = []
+        words_by_length[length].append(word)
+
+    
