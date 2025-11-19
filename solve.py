@@ -188,3 +188,32 @@ def select_unassigned_variable(assignment, csp, method):
         else:
             return select_unassigned_variable(assignment, csp, 'deg')
         
+def order_domain_values(var, assignment, csp, method):
+    # order domain values using specified heuristic
+    if method == 'static':
+        return sorted(var.domain) # Alphabetical order
+    elif method == 'lcv':
+        value_scores = []
+        for value in var.domain:
+            score = 0
+            # For each constraint involving this variable
+            for constraint in csp['constraints']:
+                if constraint.var1.name == var.name:
+                    other_var = constraint.var2
+                    if other_var.name not in assignment:
+                        # Count how many values remain for other variable
+                        for other_value in other_var.domain:
+                            if value[constraint.post1] == other_value[constraint.pos2]:
+                                score += 1
+                elif constraint.var2.name == var.name:
+                    other_var = constraint.var1
+                    if other_var.name not in assignment:
+                        for other_value in other_var.domain:
+                            if value[constraint.pos2] == other_value[constraint.pos1]:
+                                score += 1
+
+            value_scores.append((value, score))
+    
+        value_scores.append((value, score))
+        return [value for value, _ in value_scores]
+        
