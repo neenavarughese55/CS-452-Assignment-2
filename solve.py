@@ -213,7 +213,41 @@ def order_domain_values(var, assignment, csp, method):
                                 score += 1
 
             value_scores.append((value, score))
-    
         value_scores.append((value, score))
         return [value for value, _ in value_scores]
         
+def is_consistent(var, value, assignment, csp, forward_check):
+    # Check if assignment is consistent
+    # Basic consistency check
+    for constraint in csp['constraints']:
+        if constraint.var1.name == var.name and constraint.var2.name in assignment:
+            other_value = assignment[constraint.var2.name]
+            if value[constraint.pos1] != other_value[constraint.pos2]:
+                return False
+            elif constraint.var2.name == var.name and constraint.var1.name in assignment:
+                other_value = assignment[constraint.var1.name]
+                if value[constraint.pos2] != other_value[constraint.pos1]:
+                    return False
+                
+        if forward_check:
+            for constraint in csp['constraints']:
+                if constraint.var1.name == var.name and constraint.var2.name not in assignment:
+                    # Check if any value in other domain statisfies constraint
+                    other_var = constraint.var2
+                    has_valid_value = False
+                    for other_value in other_var.domain:
+                        if value[constraint.pos1] == other_value[constraint.pos2]:
+                            has_valid_value = True
+                            break
+                        if not has_valid_value:
+                            return False
+                        elif constraint.var2.name == var.name and constraint.var1.name not in assignment:
+                            other_var = constraint.var1
+                            has_valid_value = False
+                            for other_value in other_var.domain:
+                                if value[constraint.pos2] == other_value[constraint.pos1]:
+                                    has_valid_value = True
+                                    break
+                            if not has_valid_value:
+                                return False
+        return True
