@@ -151,3 +151,40 @@ def build_csp(grid, dictionary, verbosity=0):
         print(f"* CSP has {len(constraints)} constraints")
 
     return {'variables': variables, 'constraints': constraints, 'var_dict': var_dict}
+
+def select_unassigned_variable(assignment, csp, method):
+    # Select next variable using specified heuristic
+    unassigned = [var for var in csp['variables'] if var.name not in assignment]
+
+    # Static ordering by puzzle number, across before down
+    if method == 'static':
+        def sort_key(var):
+            num = int(var.name[1:-1])
+            direction = 0 if var.name[-1] == 'a' else 1
+            return (num, direction)
+        return sorted(unassigned, key=sort_key)[0]
+    
+    # Minimum remaining values heuristic
+    elif method == 'mrv':
+        return min(unassigned, key=lambda var: len(var.domain))
+    
+    # Degree heuristic, variable involved in most constraints
+    elif method == 'deg':
+        def count_constraints(var):
+            count = 0
+            for constraint in csp['constraints']:
+                if constraint.var1.name == var.name or constraint.var2.name == var.name:
+                    count += 1
+            return count
+        return max(unassigned, key=count_constraints)
+    
+    elif method == 'mrv+deg':
+        mrv_sorted = sorted(unassigned, key=lambda var: len(var.domain))
+        min_domain_size = len(mrv_sorted[0].domain)
+        tied_vars = [var for var in mrv_sorted if len(var.domain) == min_domain_size]
+        
+        if len(tied_vars) == 1:
+            return tied_vars[0]
+        else:
+            return select_unassigned_variable(assignment, csp, 'deg')
+        
