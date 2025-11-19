@@ -251,3 +251,39 @@ def is_consistent(var, value, assignment, csp, forward_check):
                             if not has_valid_value:
                                 return False
         return True
+    
+def backtrack(assignment, csp, args, stats, depth):
+    stats['recursive_calls'] += 1
+
+    if len(assignment) == len(csp['variable']):
+        if args.verbosity >= 2:
+            print(" " * depth + "Assignment is complete!")
+        return assignment
+    
+    var = select_unassigned_variable(assignment, csp, args.variable_selection)
+
+    if args.verbosity >= 2:
+        indent = " " * depth
+        print(f"{indent}Backtrack Call: ")
+        print(f"{indent}Trying values for {var.name}")
+
+    for value in order_domain_values(var, assignment, csp, args.value_order):
+        if is_consistent(var, value, assignment, csp, args.limited_forward_check):
+            assignment[var.name] = value
+            if args.verbosity >= 2:
+                indent = " " * depth
+                print(f"{indent}Assignment {{ {var.name} = {value} }} is consistent")
+
+                result = backtrack(assignment, csp, args, stats, depth + 1)
+                if result is not None:
+                    return result
+                del assignment[var.name]
+            else:
+                if args.verbosity >= 2:
+                    indent = " " * depth
+                    print(f"{indent}Assignment {{ {var.name} = {value} }} is inconsistent")
+
+    if args.verbosity >= 2:
+        indent = " " * depth
+        print(f"{indent}Failed call; backtracking...")
+    return None
