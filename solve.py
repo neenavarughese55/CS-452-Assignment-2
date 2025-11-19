@@ -295,3 +295,39 @@ def backtracking_search(csp, args, stats):
     if args.verbosity >= 2:
         print("** Running backtracking search...")
     return backtrack(assignment, csp, args, stats, 0)
+
+def display_solution(assignment, original_grid):
+    grid = [row[:] for row in original_grid]
+    rows = len(grid)
+    cols = len(grid[0]) if rows > 0 else 0
+
+    for var_name, word in assignment.items():
+        var_num = var_name[1:-1]
+        direction = var_name[-1]
+        start_row, start_col = -1, -1
+
+        for i in range(rows):
+            for j in range(cols):
+                if grid[i][j] == var_num:
+                    start_row, start_col = i, j
+                    break
+            if start_row != -1:
+                break
+
+        if start_row != -1:
+            for k in range(len(word)):
+                if direction == 'a':
+                    if j + k < cols:
+                        grid[i][j + k] = word[k]
+                else:
+                    if i + k < rows:
+                        grid[i + k][j] = word[k]
+
+    for row in grid:
+        display_row = []
+        for cell in row:
+            if cell == '#':
+                display_row.append(' ')
+            else:
+                display_row.append(cell)
+        print(''.join(display_row))
