@@ -21,28 +21,7 @@ Required Arguments
 
 -p FILENAME : Puzzle file path (contains crossword grid)
 
-Optional Arguments
--v INTEGER : Verbosity level (0, 1, or 2; default: 0)
-
--vs HEURISTIC : Variable selection heuristic
-
-static (default) - Fixed ordering by puzzle number
-
-mrv - Minimum Remaining Values
-
-deg - Degree heuristic
-
-mrv+deg - MRV with degree tie-breaking
-
--vo HEURISTIC : Value ordering heuristic
-
-static (default) - Alphabetical order
-
-lcv - Least Constraining Value
-
--lfc : Enable limited forward checking
-
-Examples
+Examples of how to run
 # Basic Usage
 python3 solve.py -d a02-data/dictionary-small.txt -p a02-data/xword00.txt
 
@@ -52,7 +31,7 @@ python3 solve.py -d a02-data/dictionary-small.txt -p a02-data/xword00.txt -vs mr
 # With Limited Forward Checking
 python3 solve.py -d a02-data/dictionary-large.txt -p a02-data/xword01.txt -lfc -v 2
 
-# Testing Different Puzzles
+Testing Different Puzzles
 
 # Small puzzle with small dictionary
 python3 solve.py -d a02-data/dictionary-small.txt -p a02-data/xword00.txt -v 1
