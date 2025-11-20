@@ -44,17 +44,18 @@ def parse_puzzle(filename, verbosity=0):
 
         # Read grid
         grid = []
-        for i in range(rows):
-            line = data.readline().strip()
-            cells = line.split()
-            grid.append(cells)
+        for _ in range(rows):
+            value = data.readline().strip().split()
+            if len(value) != cols:
+                raise ValueError(f"Expected {cols} values per row, got {len(value)}")
+            grid.append(value)
 
-    if verbosity >=1:
+    if verbosity >= 1:
         print(f"* Reading puzzle from [{filename}]")
-    if verbosity >=2:
+    if verbosity >= 2:
         print("** Puzzle")
         for row in grid:
-            print(''.join(row))
+            print(' '.join(row))
     return grid, rows, cols
 
 def build_csp(grid, dictionary, verbosity=0):
@@ -63,122 +64,136 @@ def build_csp(grid, dictionary, verbosity=0):
     rows = len(grid)
     cols = len(grid[0]) if rows > 0 else 0
 
+    # Helper: any non-# cell is fillable
+    def is_fillable(r, c):
+        return grid[r][c] != '#'
+
     # Find across words
     for i in range(rows):
         j = 0
         while j < cols:
-            if grid[i][j].isdigit(): # Start of a word
-                start_j = j
-                number = grid[i][j]
-                length = 0
-
-                # Calculate word length
-                is_start_of_across = (j == 0 or grid[i][j-1] == '#')
-                while j < cols and grid[i][j] != '#':
-                    length += 1
-                    j += 1
-                
-                if is_start_of_across and length > 1: # Single letter words don't count
-                    var_name = f"X{number}a"
-                    var = Variable(var_name, 'across', (i, start_j), length)
-                    variables.append(var)
-                    var_dict[var_name] = var
-                j += 1
+            if is_fillable(i, j):
+                # Check if it is the start of an across word
+                if j == 0 or not is_fillable(i, j-1):
+                    # measure length
+                    length = 0
+                    jj = j
+                    while jj < cols and is_fillable(i, jj):
+                        length += 1
+                        jj += 1
+                    
+                    # Only create variable if length > 1
+                    if length > 1:
+                        val = grid[i][j]
+                        label = val if val.isdigit() else f"{i}_{j}"
+                        name = f"X{label}a"
+                        var = Variable(name, 'across', (i, j), length)
+                        variables.append(var)
+                        var_dict[name] = var
+                    
+                    j = jj  # Move to position after this word
+                else:
+                    j += 1  # Not start of word, move to next cell
             else:
-                j +=1
+                j += 1  # Not fillable, move to next cell
 
-    # Find down words
+    # Find down words 
     for j in range(cols):
         i = 0
         while i < rows:
-            if grid[i][j].isdigit():
-                start_i = i
-                number = grid[i][j]
-                length = 0
-                is_start_of_down = (i == 0 or grid[i-1][j] == '#')
-                while i < rows and grid[i][j] != '#':
-                    length += 1
-                    i += 1
-                
-                if is_start_of_down and length > 1:
-                    var_name = f"X{number}d"
-                    var = Variable(var_name, 'down', (start_i, j), length)
-                    variables.append(var)
-                    var_dict[var_name] = var
-                i += 1
+            if is_fillable(i, j):
+                # Check if it is the start of a down word
+                if i == 0 or not is_fillable(i-1, j):
+                    # measure length
+                    length = 0
+                    ii = i
+                    while ii < rows and is_fillable(ii, j):
+                        length += 1
+                        ii += 1
+                    
+                    # Only create variable if length > 1
+                    if length > 1:
+                        val = grid[i][j]
+                        label = val if val.isdigit() else f"{i}_{j}"
+                        name = f"X{label}d"
+                        var = Variable(name, 'down', (i, j), length)
+                        variables.append(var)
+                        var_dict[name] = var
+                    
+                    i = ii  # Move to position after this word
+                else:
+                    i += 1  # Not start of word, move to next cell
             else:
-                i += 1
+                i += 1  # Not fillable, move to next cell
 
-    # Initialise domains
+    # Initialise domains by length
     words_by_length = {}
     for word in dictionary:
-        length = len(word)
-        if length not in words_by_length:
-            words_by_length[length] = []
-        words_by_length[length].append(word)
+        words_by_length.setdefault(len(word), []).append(word)
 
     for var in variables:
-        if var.length in words_by_length:
-            var.domains = sorted(words_by_length[var.length])
+        var.domain = sorted(words_by_length.get(var.length, []))
 
-    # Find constraints
-    constraints = []
     position_to_vars = {}
 
-    # Get all positions occupied by var1 and var2
+    # Get all positions occupied by variables
     for var in variables:
-        row, col = var.start.pos
+        r, c = var.start_pos
         for pos in range(var.length):
             if var.direction == 'across':
-                current_pos = (row, col + pos)
+                current_pos = (r, c + pos)
             else:
-                current_pos = (row + pos, col)
-
-            if current_pos not in position_to_vars:
-                position_to_vars[current_pos] = []
-            position_to_vars[current_pos].append((var, pos))
-
+                current_pos = (r + pos, c)
+            position_to_vars.setdefault(current_pos, []).append((var, pos))
+    
+    # Build constraints and adjacency lists
+    constraints = []
+    adjacency = {var.name: [] for var in variables}
     for pos, var_list in position_to_vars.items():
         if len(var_list) > 1:
             for i in range(len(var_list)):
                 for j in range(i + 1, len(var_list)):
                     var1, pos1 = var_list[i]
                     var2, pos2 = var_list[j]
-                    constraints.append(Constraint(var1, var2, pos1, pos2))
+                    constraint = Constraint(var1, var2, pos1, pos2)
+                    constraints.append(constraint)
+                    adjacency[var1.name].append(constraint)
+                    adjacency[var2.name].append(constraint)
 
     if verbosity >= 1:
         print(f"* CSP has {len(variables)} variables")
         print(f"* CSP has {len(constraints)} constraints")
 
-    return {'variables': variables, 'constraints': constraints, 'var_dict': var_dict}
+    return {'variables': variables, 'constraints': constraints, 'var_dict': var_dict, 'adjacency': adjacency}
 
 def select_unassigned_variable(assignment, csp, method):
     # Select next variable using specified heuristic
     unassigned = [var for var in csp['variables'] if var.name not in assignment]
+    if not unassigned:
+        return None
 
     # Static ordering by puzzle number, across before down
     if method == 'static':
         def sort_key(var):
-            num = int(var.name[1:-1])
-            direction = 0 if var.name[-1] == 'a' else 1
-            return (num, direction)
+            body = var.name[1:-1]
+            try:
+                num = int(body)
+                return (num, 0 if var.name[-1]=='a' else 1)
+            except:
+                return (999999, var.name)
         return sorted(unassigned, key=sort_key)[0]
     
     # Minimum remaining values heuristic
-    elif method == 'mrv':
+    if method == 'mrv':
         return min(unassigned, key=lambda var: len(var.domain))
     
     # Degree heuristic, variable involved in most constraints
-    elif method == 'deg':
+    if method == 'deg':
         def count_constraints(var):
-            count = 0
-            for constraint in csp['constraints']:
-                if constraint.var1.name == var.name or constraint.var2.name == var.name:
-                    count += 1
-            return count
+            return len(csp['adjacency'].get(var.name, []))
         return max(unassigned, key=count_constraints)
     
-    elif method == 'mrv+deg':
+    if method == 'mrv+deg':
         mrv_sorted = sorted(unassigned, key=lambda var: len(var.domain))
         min_domain_size = len(mrv_sorted[0].domain)
         tied_vars = [var for var in mrv_sorted if len(var.domain) == min_domain_size]
@@ -188,87 +203,103 @@ def select_unassigned_variable(assignment, csp, method):
         else:
             return select_unassigned_variable(assignment, csp, 'deg')
         
+    return unassigned[0]
+        
 def order_domain_values(var, assignment, csp, method):
     # order domain values using specified heuristic
     if method == 'static':
         return sorted(var.domain) # Alphabetical order
+    
     elif method == 'lcv':
         value_scores = []
-        for value in var.domain:
-            score = 0
-            # For each constraint involving this variable
-            for constraint in csp['constraints']:
-                if constraint.var1.name == var.name:
-                    other_var = constraint.var2
-                    if other_var.name not in assignment:
-                        # Count how many values remain for other variable
-                        for other_value in other_var.domain:
-                            if value[constraint.post1] == other_value[constraint.pos2]:
-                                score += 1
-                elif constraint.var2.name == var.name:
-                    other_var = constraint.var1
-                    if other_var.name not in assignment:
-                        for other_value in other_var.domain:
-                            if value[constraint.pos2] == other_value[constraint.pos1]:
-                                score += 1
+        neighbours = []
+        # For each constraint involving this variable
+        for constraint in csp['adjacency'].get(var.name, []):
+            if constraint.var1.name == var.name:
+                neighbour = constraint.var2
+                pos_self = constraint.pos1
+                pos_neighbour = constraint.pos2
+            else:
+                neighbour = constraint.var1
+                pos_self = constraint.pos2
+                pos_neighbour = constraint.pos1
 
-            value_scores.append((value, score))
-        value_scores.append((value, score))
+            if neighbour.name not in assignment:
+                neighbours.append((neighbour, pos_self, pos_neighbour))
+
+        # Count how many values remain for other variable
+        for val in var.domain:
+            total = 0
+            for neighbour, pos_self, pos_neighbour in neighbours:
+                count = 0
+                for nv in neighbour.domain:
+                    if val[pos_self] == nv[pos_neighbour]:
+                        count += 1
+                total += count
+            value_scores.append((val, total))
+
+        # Sort by score descending (higher score = less constraining)
+        value_scores.sort(key=lambda x: x[1], reverse=True)
         return [value for value, _ in value_scores]
+    
+    return sorted(var.domain) # Default to static
         
 def is_consistent(var, value, assignment, csp, forward_check):
-    # Check if assignment is consistent
-    # Basic consistency check
-    for constraint in csp['constraints']:
-        if constraint.var1.name == var.name and constraint.var2.name in assignment:
-            other_value = assignment[constraint.var2.name]
-            if value[constraint.pos1] != other_value[constraint.pos2]:
+    # Check consistency with already assigned neighbours
+    for constraint in csp['adjacency'].get(var.name, []):
+        if constraint.var1.name == var.name:
+            other_var = constraint.var2
+            pos_self = constraint.pos1
+            pos_other = constraint.pos2
+        else:
+            other_var = constraint.var1
+            pos_self = constraint.pos2
+            pos_other = constraint.pos1
+
+        if other_var.name in assignment:
+            other_value = assignment[other_var.name]
+            if value[pos_self] != other_value[pos_other]:
                 return False
-            elif constraint.var2.name == var.name and constraint.var1.name in assignment:
-                other_value = assignment[constraint.var1.name]
-                if value[constraint.pos2] != other_value[constraint.pos1]:
-                    return False
                 
-        if forward_check:
-            for constraint in csp['constraints']:
-                if constraint.var1.name == var.name and constraint.var2.name not in assignment:
-                    # Check if any value in other domain statisfies constraint
-                    other_var = constraint.var2
-                    has_valid_value = False
-                    for other_value in other_var.domain:
-                        if value[constraint.pos1] == other_value[constraint.pos2]:
-                            has_valid_value = True
+        # Limited forward checking
+    if forward_check:
+        for constraint in csp['adjacency'].get(var.name, []):
+            if constraint.var1.name == var.name:
+                other_var = constraint.var2
+                pos_self = constraint.pos1
+                pos_other = constraint.pos2
+            else:
+                other_var = constraint.var1
+                pos_self = constraint.pos2
+                pos_other = constraint.pos1
+                
+            if other_var.name not in assignment:
+                    has_valid = False
+                    for ov in other_var.domain:
+                        if value[pos_self] == ov[pos_other]:
+                            has_valid = True
                             break
-                        if not has_valid_value:
-                            return False
-                        elif constraint.var2.name == var.name and constraint.var1.name not in assignment:
-                            other_var = constraint.var1
-                            has_valid_value = False
-                            for other_value in other_var.domain:
-                                if value[constraint.pos2] == other_value[constraint.pos1]:
-                                    has_valid_value = True
-                                    break
-                            if not has_valid_value:
-                                return False
-        return True
+                    if not has_valid:
+                        return False
+    return True
     
 def backtrack(assignment, csp, args, stats, depth):
     # Recursive backtracking function
     stats['recursive_calls'] += 1
 
     # If assignment is complete, return it
-    if len(assignment) == len(csp['variable']):
+    if len(assignment) == len(csp['variables']):
         if args.verbosity >= 2:
-            print(" " * depth + "Assignment is complete!")
+            print("  " * depth + "Assignment is complete!")
         return assignment
     
     # Select unassigned variable
     var = select_unassigned_variable(assignment, csp, args.variable_selection)
+    if var is None:
+        return None
 
     if args.verbosity >= 2:
-        indent = " " * depth
-        print(f"{indent}Backtrack Call: ")
-        print(f"{indent}Trying values for {var.name}")
+        print("  " * depth + f"Trying variable {var.name} (domain size {len(var.domain)})")
 
     # Try values in order
     for value in order_domain_values(var, assignment, csp, args.value_order):
@@ -277,70 +308,59 @@ def backtrack(assignment, csp, args, stats, depth):
             assignment[var.name] = value
 
             if args.verbosity >= 2:
-                indent = " " * depth
-                print(f"{indent}Assignment {{ {var.name} = {value} }} is consistent")
+                print("  " * depth + f"Assign {var.name} = {value}")
 
-                # Recursive call
-                result = backtrack(assignment, csp, args, stats, depth + 1)
-                if result is not None:
-                    return result
+            # Recursive call
+            result = backtrack(assignment, csp, args, stats, depth + 1)
+            if result is not None:
+                return result
                 
-                # Backtrack
-                del assignment[var.name]
-            else:
-                if args.verbosity >= 2:
-                    indent = " " * depth
-                    print(f"{indent}Assignment {{ {var.name} = {value} }} is inconsistent")
+            # Backtrack
+            if args.verbosity >= 2:
+                print("  " * depth + f"Backtracking on {var.name}")
+            del assignment[var.name]
+        else:
+            if args.verbosity >= 2:
+                print("  " * depth + f"Value {value} inconsistent for {var.name}")
 
-    if args.verbosity >= 2:
-        indent = " " * depth
-        print(f"{indent}Failed call; backtracking...")
     return None # Failure
 
 def backtracking_search(csp, args, stats):
     # Backtracking search algorithm
-    assignment = {}
     if args.verbosity >= 1:
         print("* Attempting to solve crossword puzzle...")
     if args.verbosity >= 2:
         print("** Running backtracking search...")
-    return backtrack(assignment, csp, args, stats, 0)
+    return backtrack({}, csp, args, stats, 0)
 
-def display_solution(assignment, original_grid):
-    grid = [row[:] for row in original_grid]
-    rows = len(grid)
-    cols = len(grid[0]) if rows > 0 else 0
+def display_solution(assignment, original_grid, csp):
+    rows = len(original_grid)
+    cols = len(original_grid[0])
+    out = [[' ' for _ in range(cols)] for _ in range(rows)]
 
+    for r in range(rows):
+        for c in range(cols):
+            if original_grid[r][c]== '#':
+                out[r][c] = ' '
+
+    # Fills in the solution for each variable
     for var_name, word in assignment.items():
-        var_num = var_name[1:-1]
-        direction = var_name[-1]
-        start_row, start_col = -1, -1
+        # Finds which variable this is
+        var = next((v for v in csp['variables'] if v.name == var_name), None)
+        if var:
+            r, c = var.start_pos
 
-        for i in range(rows):
-            for j in range(cols):
-                if grid[i][j] == var_num:
-                    start_row, start_col = i, j
-                    break
-            if start_row != -1:
-                break
+            # Place each letter of the word in the grid
+            for k, ch in enumerate(word):
+                if var.direction == 'across':
+                        out[r][c + k] = ch
+                else: # Down
+                    if r + k < rows:
+                        out[r + k][c] = ch
 
-        if start_row != -1:
-            for k in range(len(word)):
-                if direction == 'a':
-                    if j + k < cols:
-                        grid[i][j + k] = word[k]
-                else:
-                    if i + k < rows:
-                        grid[i + k][j] = word[k]
-
-    for row in grid:
-        display_row = []
-        for cell in row:
-            if cell == '#':
-                display_row.append(' ')
-            else:
-                display_row.append(cell)
-        print(''.join(display_row))
+    # Display the final grid
+    for r in range(rows):
+        print(''.join(out[r]))
 
 def main():
     parser = argparse.ArgumentParser(description='Crossword Puzzle Solver')
@@ -367,11 +387,11 @@ def main():
         if solution is not None:
             print("SUCCESS! ", end="")
         else:
-            print("FAILED ", end="")
+            print("FAILED; ", end="")
         print(f"Solving took {stats['elapsed_time']}ms ({stats['recursive_calls']} recursive calls)")
 
         if solution:
-            display_solution(solution, grid)
+            display_solution(solution, grid, csp)
 
     except FileNotFoundError as e:
         print(f"Error: {e}")
