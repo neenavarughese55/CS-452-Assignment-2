@@ -43,17 +43,17 @@ lcv - Least Constraining Value
 -lfc : Enable limited forward checking
 
 Examples
-Basic Usage
-bash
+# Basic Usage
 python3 solve.py -d a02-data/dictionary-small.txt -p a02-data/xword00.txt
-With Heuristics and Verbosity
-bash
+
+# With Heuristics and Verbosity
 python3 solve.py -d a02-data/dictionary-small.txt -p a02-data/xword00.txt -vs mrv -vo lcv -v 1
-With Limited Forward Checking
-bash
+
+# With Limited Forward Checking
 python3 solve.py -d a02-data/dictionary-large.txt -p a02-data/xword01.txt -lfc -v 2
-Testing Different Puzzles
-bash
+
+# Testing Different Puzzles
+
 # Small puzzle with small dictionary
 python3 solve.py -d a02-data/dictionary-small.txt -p a02-data/xword00.txt -v 1
 
